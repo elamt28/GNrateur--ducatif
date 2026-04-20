@@ -32,6 +32,14 @@ except ImportError:
 APP_ID = globals().get('__app_id', 'eduforge-pro-master-cfa')
 FIREBASE_CONFIG = globals().get('__firebase_config')
 
+# --- MÉMOIRE À COURT TERME (ANTI-CRASH REACT) ---
+if 'cours_memoire' not in st.session_state:
+    st.session_state.cours_memoire = None
+if 'sujet_memoire' not in st.session_state:
+    st.session_state.sujet_memoire = None
+if 'suggestions_memoire' not in st.session_state:
+    st.session_state.suggestions_memoire = None
+
 # --- INITIALISATION DU STOCKAGE SÉCURISÉ (RÈGLE 3) ---
 def init_storage():
     if not HAS_FIREBASE or not FIREBASE_CONFIG:
@@ -85,7 +93,6 @@ def generer_docx(titre, contenu):
     """Génère un document Word propre pour l'impression au CFA."""
     if not HAS_DOCX: return None
     doc = Document()
-    # Nettoyage préventif
     titre_nettoyé = nettoyer_texte_pour_export(titre)
     contenu_nettoyé = nettoyer_texte_pour_export(contenu)
     
@@ -191,38 +198,50 @@ with tab_gen:
     formation_sel = st.selectbox("Formation concernée :", options_f)
     formation = st.text_input("Précisez la formation :") if formation_sel == "➕ Autre" else formation_sel
     
+    # Bouton de suggestion avec gestion de mémoire
     if st.button("💡 Suggérer des idées de sujets"):
         if api_key and formation: 
             with st.spinner("Consultation des référentiels..."):
-                st.info(suggerer_sujets(formation, api_key))
+                st.session_state.suggestions_memoire = suggerer_sujets(formation, api_key)
+                
+    if st.session_state.suggestions_memoire:
+        st.info(st.session_state.suggestions_memoire)
             
     sujet = st.text_input("Sujet du cours :", placeholder="Ex: L'allumage électronique, Levains naturels...")
     lieu = st.text_input("Lieu du scénario :", value="Chartres / Champhol")
     lancer = st.button("🚀 Forger le Module", use_container_width=True)
 
+    # TRAITEMENT DE LA GÉNÉRATION
     if lancer and sujet and moteur_ia:
         genai.configure(api_key=api_key)
         with st.spinner(f"Forgeage pédagogique avec {moteur_ia} en cours..."):
             try:
                 document_cours = generer_cours_complet(formation, sujet, lieu, moteur_ia)
-                # Sauvegarde automatique dans Firestore
                 sauvegarder_dans_historique(formation, sujet, document_cours)
                 
-                st.success("✅ Module pédagogique forgé et archivé !")
-                col1, col2 = st.columns([2, 1])
-                with col1:
-                    if HAS_DOCX: 
-                        st.download_button("📥 Télécharger en format WORD (.docx)", generer_docx(f"Cours : {sujet}", document_cours), f"Cours_{sujet}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-                with col2:
-                    if HAS_QR: 
-                        st.image(generer_qr_code("https://www.cfa-interpro-28.fr/"), width=120, caption="Lien de session")
-                
-                st.divider()
-                st.markdown(document_cours)
+                # Enregistrement dans la mémoire de l'application
+                st.session_state.cours_memoire = document_cours
+                st.session_state.sujet_memoire = sujet
             except ResourceExhausted: 
                 st.error("🚨 Quota atteint. Changez de moteur IA ou attendez 60 secondes.")
             except Exception as e: 
                 st.error(f"🚨 Une erreur est survenue : {e}")
+
+    # AFFICHAGE PERSISTANT (Empêche l'erreur removeChild lors du téléchargement)
+    if st.session_state.cours_memoire:
+        st.success("✅ Module pédagogique forgé et prêt !")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            if HAS_DOCX: 
+                doc_bytes = generer_docx(f"Cours : {st.session_state.sujet_memoire}", st.session_state.cours_memoire)
+                if doc_bytes:
+                    st.download_button("📥 Télécharger en format WORD (.docx)", doc_bytes, f"Cours_{st.session_state.sujet_memoire}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        with col2:
+            if HAS_QR: 
+                st.image(generer_qr_code("https://www.cfa-interpro-28.fr/"), width=120, caption="Lien de session")
+        
+        st.divider()
+        st.markdown(st.session_state.cours_memoire)
 
 with tab_hist:
     st.header("📂 Bibliothèque Pédagogique")
@@ -239,4 +258,6 @@ with tab_hist:
                 with st.expander(f"📅 {date_str} | {item.get('formation')} : {item.get('sujet')}"):
                     st.markdown(item.get('contenu'))
                     if HAS_DOCX:
-                        st.download_button("📥 Retélécharger WORD", generer_docx(item.get('sujet'), item.get('contenu')), f"Archive_{item.get('sujet')}.docx", key=f"dl_{item.get('timestamp')}")
+                        doc_bytes_archive = generer_docx(item.get('sujet'), item.get('contenu'))
+                        if doc_bytes_archive:
+                            st.download_button("📥 Retélécharger WORD", doc_bytes_archive, f"Archive_{item.get('sujet')}.docx", key=f"dl_{item.get('timestamp')}")
