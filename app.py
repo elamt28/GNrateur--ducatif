@@ -4,13 +4,6 @@ import google.generativeai as genai
 # --- CONFIGURATION EXPERTE ---
 st.set_page_config(page_title="GNrateur contenu éducatif", layout="wide", page_icon="📝")
 
-# Gestion sécurisée de la clé API
-try:
-    genai.configure(api_key=st.secrets["API_KEY"])
-except Exception as e:
-    st.error("🚨 Clé API introuvable. Veuillez vérifier vos secrets Streamlit.")
-    st.stop()
-
 # --- MOTEUR DE GÉNÉRATION ROBUSTE (TEXTE STRUCTURÉ) ---
 def generer_cours_complet(formation, sujet, localisation):
     """
@@ -75,6 +68,11 @@ st.title("📝 GNrateur contenu éducatif")
 st.markdown("L'outil d'ingénierie pédagogique infaillible du CFA. Générez des documents structurés, conformes et prêts à imprimer.")
 
 with st.sidebar:
+    st.header("🔑 Accès Sécurisé")
+    api_key = st.text_input("Clé API Google Gemini :", type="password", help="Insérez votre clé API ici. Elle n'est pas sauvegardée et reste locale.")
+    
+    st.divider()
+    
     st.header("⚙️ Paramètres de la session")
     formation = st.selectbox(
         "Formation concernée :", 
@@ -90,28 +88,39 @@ with st.sidebar:
     localisation = st.text_input("Localisation :", value="Chartres / Champhol")
     lancer = st.button("🚀 Générer le Document", use_container_width=True)
 
-if lancer and sujet:
-    with st.spinner("Rédaction du document clef en main (Processus blindé en cours)..."):
-        try:
-            # 1. Génération du contenu brut
-            document_cours = generer_cours_complet(formation, sujet, localisation)
-            
-            st.success("✅ Document généré avec succès ! Aucun crash détecté.")
-            
-            # 2. Bouton de téléchargement robuste
-            st.download_button(
-                label="📥 Télécharger le Document (Format Texte)", 
-                data=document_cours, 
-                file_name=f"Cours_{formation.replace(' ', '_')}_{sujet.replace(' ', '_')}.txt", 
-                mime="text/plain"
-            )
-            
-            st.info("💡 Astuce : Vous pouvez cliquer sur 'Télécharger', ou simplement copier/coller le texte ci-dessous directement dans Word. Word conservera la mise en forme (Titres, gras, puces).")
-            st.divider()
-            
-            # 3. Affichage pleine page
-            st.markdown(document_cours)
+# Validation de la clé API avant lancement
+if lancer:
+    if not api_key:
+        st.warning("👈 Veuillez entrer votre clé API Gemini dans le menu de gauche pour démarrer le moteur.")
+        st.stop()
+    elif not sujet:
+        st.warning("Veuillez indiquer un sujet de cours.")
+        st.stop()
+    else:
+        # Configuration sécurisée de la clé saisie par l'utilisateur
+        genai.configure(api_key=api_key)
+        
+        with st.spinner("Rédaction du document clef en main (Processus blindé en cours)..."):
+            try:
+                # 1. Génération du contenu brut
+                document_cours = generer_cours_complet(formation, sujet, localisation)
                 
-        except Exception as e:
-            st.error("🚨 Une erreur système de connexion à l'IA est survenue.")
-            st.code(str(e))
+                st.success("✅ Document généré avec succès ! Aucun crash détecté.")
+                
+                # 2. Bouton de téléchargement robuste
+                st.download_button(
+                    label="📥 Télécharger le Document (Format Texte)", 
+                    data=document_cours, 
+                    file_name=f"Cours_{formation.replace(' ', '_')}_{sujet.replace(' ', '_')}.txt", 
+                    mime="text/plain"
+                )
+                
+                st.info("💡 Astuce : Vous pouvez cliquer sur 'Télécharger', ou simplement copier/coller le texte ci-dessous directement dans Word. Word conservera la mise en forme (Titres, gras, puces).")
+                st.divider()
+                
+                # 3. Affichage pleine page
+                st.markdown(document_cours)
+                    
+            except Exception as e:
+                st.error("🚨 Une erreur système de connexion à l'IA est survenue. Vérifiez que votre clé API est valide.")
+                st.code(str(e))
