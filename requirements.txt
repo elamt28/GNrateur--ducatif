@@ -1,6 +1,7 @@
-streamlit
-google-generativeai
-python-docx
-qrcode
-Pillow
-firebase-admin
+import streamlit as st
+import google.generativeai as genai
+from google.api_core.exceptions import InvalidArgument, ResourceExhausted
+import json
+import os
+import datetime
+from io import BytesIO
