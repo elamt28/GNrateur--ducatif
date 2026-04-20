@@ -135,15 +135,27 @@ if lancer:
                     
             except InvalidArgument:
                 st.error("🚨 La clé API saisie n'est pas valide. Veuillez vérifier que vous avez copié l'intégralité de la clé depuis Google AI Studio sans espace supplémentaire.")
-            except ResourceExhausted:
-                st.warning("⏱️ Quota d'utilisation dépassé (Erreur 429). Le moteur tourne trop vite pour la clé gratuite (limite de requêtes atteinte). Laissez refroidir environ 30 à 60 secondes avant de relancer la génération !")
+            except ResourceExhausted as e:
+                # Analyse de l'erreur pour donner une estimation de temps
+                error_msg = str(e)
+                if "retry in" in error_msg:
+                    try:
+                        # Tente d'extraire le temps d'attente suggéré par Google
+                        time_str = error_msg.split("retry in ")[1].split("s")[0]
+                        wait_time = int(float(time_str)) + 1 # Arrondi au supérieur
+                        st.warning(f"⏱️ Quota d'utilisation dépassé (Erreur 429). Limite de requêtes par minute atteinte. Veuillez patienter environ {wait_time} secondes avant de relancer.")
+                    except:
+                         st.warning("⏱️ Quota d'utilisation dépassé (Erreur 429). Limite de requêtes atteinte. Veuillez patienter environ une minute avant de relancer.")
+                else:
+                    st.warning("⏱️ Quota d'utilisation dépassé (Erreur 429). Vous avez peut-être atteint votre limite journalière. Vérifiez votre quota sur Google AI Studio.")
             except Exception as e:
                 # Traitement des autres erreurs imprévues (réseau, surcharge serveur...)
                 error_message = str(e)
                 if "API_KEY_INVALID" in error_message:
                     st.error("🚨 Clé API refusée par le serveur Google. Vérifiez votre clé.")
                 elif "429" in error_message or "quota" in error_message.lower():
-                    st.warning("⏱️ Quota d'utilisation gratuit dépassé. Veuillez patienter une petite minute avant de relancer.")
+                     # Fallback si l'exception n'est pas captée comme ResourceExhausted
+                    st.warning("⏱️ Quota d'utilisation gratuit dépassé. Veuillez patienter avant de relancer.")
                 else:
                     st.error("🚨 Une erreur de connexion au serveur est survenue. Veuillez réessayer dans quelques instants.")
                     st.code(error_message)
