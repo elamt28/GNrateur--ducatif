@@ -6,14 +6,11 @@ from google.api_core.exceptions import InvalidArgument, ResourceExhausted
 st.set_page_config(page_title="GNrateur contenu éducatif", layout="wide", page_icon="📝")
 
 # --- MOTEUR DE GÉNÉRATION ROBUSTE (TEXTE STRUCTURÉ) ---
-def generer_cours_complet(formation, sujet, localisation):
+def generer_cours_complet(formation, sujet, localisation, moteur_choisi):
     """
-    Génère un cours complet en Markdown. 
-    L'avantage du Markdown est qu'il ne plante JAMAIS (contrairement au JSON) 
-    et se copie/colle parfaitement dans Word.
+    Génère un cours complet en Markdown en utilisant le modèle sélectionné.
     """
-    moteur = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods][0]
-    model = genai.GenerativeModel(moteur)
+    model = genai.GenerativeModel(moteur_choisi)
     
     prompt = f"""
     Agis en tant que meilleur expert ingénieur pédagogique. Tu dois rédiger un document de cours "clef en main" pour des apprentis.
@@ -73,6 +70,16 @@ with st.sidebar:
     api_key = st.text_input("Clé API Google Gemini :", type="password", help="Insérez votre clé API valide ici. Elle n'est pas sauvegardée et reste locale.")
     
     st.divider()
+
+    st.header("⚙️ Paramètres du Moteur")
+    # Sélecteur de modèle pour contourner les quotas
+    moteur_ia = st.selectbox(
+        "Sélectionnez le moteur IA (Changez si erreur 429) :",
+        ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    )
+    st.caption("Astuce : Si le moteur '2.5-flash' est saturé, essayez le '1.5-flash'.")
+
+    st.divider()
     
     st.header("⚙️ Paramètres de la session")
     
@@ -112,10 +119,10 @@ if lancer:
         # Configuration de la clé saisie par l'utilisateur
         genai.configure(api_key=api_key)
         
-        with st.spinner("Rédaction du document clef en main (Processus blindé en cours)..."):
+        with st.spinner(f"Rédaction du document avec le moteur {moteur_ia} (Processus blindé en cours)..."):
             try:
                 # 1. Génération du contenu brut
-                document_cours = generer_cours_complet(formation, sujet, localisation)
+                document_cours = generer_cours_complet(formation, sujet, localisation, moteur_ia)
                 
                 st.success("✅ Document généré avec succès ! Aucun crash détecté.")
                 
@@ -136,18 +143,8 @@ if lancer:
             except InvalidArgument:
                 st.error("🚨 La clé API saisie n'est pas valide. Veuillez vérifier que vous avez copié l'intégralité de la clé depuis Google AI Studio sans espace supplémentaire.")
             except ResourceExhausted as e:
-                # Analyse de l'erreur pour donner une estimation de temps
-                error_msg = str(e)
-                if "retry in" in error_msg:
-                    try:
-                        # Tente d'extraire le temps d'attente suggéré par Google
-                        time_str = error_msg.split("retry in ")[1].split("s")[0]
-                        wait_time = int(float(time_str)) + 1 # Arrondi au supérieur
-                        st.warning(f"⏱️ Quota d'utilisation dépassé (Erreur 429). Limite de requêtes par minute atteinte. Veuillez patienter environ {wait_time} secondes avant de relancer.")
-                    except:
-                         st.warning("⏱️ Quota d'utilisation dépassé (Erreur 429). Limite de requêtes atteinte. Veuillez patienter environ une minute avant de relancer.")
-                else:
-                    st.warning("⏱️ Quota d'utilisation dépassé (Erreur 429). Vous avez peut-être atteint votre limite journalière. Vérifiez votre quota sur Google AI Studio.")
+                st.error(f"🚨 Le moteur {moteur_ia} est actuellement saturé (Erreur 429 - Quota dépassé).")
+                st.warning("🛠️ Solution : Essayez de sélectionner un autre 'Moteur IA' dans la barre latérale, ou vérifiez vos quotas journaliers sur Google AI Studio.")
             except Exception as e:
                 # Traitement des autres erreurs imprévues (réseau, surcharge serveur...)
                 error_message = str(e)
@@ -155,7 +152,7 @@ if lancer:
                     st.error("🚨 Clé API refusée par le serveur Google. Vérifiez votre clé.")
                 elif "429" in error_message or "quota" in error_message.lower():
                      # Fallback si l'exception n'est pas captée comme ResourceExhausted
-                    st.warning("⏱️ Quota d'utilisation gratuit dépassé. Veuillez patienter avant de relancer.")
+                    st.error(f"🚨 Le moteur {moteur_ia} est actuellement saturé (Erreur 429). Essayez un autre modèle dans le menu de gauche.")
                 else:
                     st.error("🚨 Une erreur de connexion au serveur est survenue. Veuillez réessayer dans quelques instants.")
                     st.code(error_message)
