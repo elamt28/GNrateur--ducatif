@@ -60,6 +60,29 @@ def generer_cours_complet(formation, sujet, localisation, moteur_choisi):
     reponse = model.generate_content(prompt)
     return reponse.text
 
+# --- FONCTION DE RÉCUPÉRATION DES MODÈLES (ANTI-404) ---
+@st.cache_data(show_spinner=False)
+def obtenir_modeles_disponibles(api_key):
+    """
+    Interroge l'API Google pour lister uniquement les modèles de génération de texte
+    réellement disponibles pour la clé API fournie.
+    """
+    genai.configure(api_key=api_key)
+    modeles_valides = []
+    try:
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                # On nettoie le nom (ex: "models/gemini-pro" devient "gemini-pro")
+                nom_propre = m.name.replace("models/", "")
+                modeles_valides.append(nom_propre)
+    except Exception as e:
+        # En cas d'erreur (ex: clé invalide au démarrage), on renvoie une liste vide
+        return []
+    
+    # On trie pour mettre les modèles 'flash' (souvent plus rapides) en premier
+    modeles_valides.sort(key=lambda x: "flash" not in x)
+    return modeles_valides
+
 # --- INTERFACE UTILISATEUR ---
 st.title("📝 GNrateur contenu éducatif")
 st.markdown("L'outil d'ingénierie pédagogique infaillible du CFA. Générez des documents structurés, conformes et prêts à imprimer.")
@@ -72,12 +95,22 @@ with st.sidebar:
     st.divider()
 
     st.header("⚙️ Paramètres du Moteur")
-    # Sélecteur de modèle pour contourner les quotas
-    moteur_ia = st.selectbox(
-        "Sélectionnez le moteur IA (Changez si erreur 429) :",
-        ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
-    )
-    st.caption("Astuce : Si le moteur '2.5-flash' est saturé, essayez le '1.5-flash'.")
+    
+    # --- GESTION DYNAMIQUE DU SÉLECTEUR DE MOTEUR ---
+    if api_key:
+        liste_moteurs = obtenir_modeles_disponibles(api_key)
+        if liste_moteurs:
+             moteur_ia = st.selectbox(
+                "Sélectionnez le moteur IA (Changez si erreur 429) :",
+                liste_moteurs
+            )
+             st.caption("Astuce : Si un moteur est saturé, essayez-en un autre dans la liste.")
+        else:
+             st.error("Impossible de récupérer la liste des modèles. Vérifiez votre clé API.")
+             moteur_ia = None
+    else:
+        st.info("Veuillez saisir votre clé API pour afficher les moteurs disponibles.")
+        moteur_ia = None
 
     st.divider()
     
@@ -108,6 +141,9 @@ with st.sidebar:
 if lancer:
     if not api_key:
         st.warning("👈 Veuillez entrer votre clé API Gemini dans le menu de gauche pour démarrer le moteur.")
+        st.stop()
+    elif not moteur_ia:
+        st.warning("Aucun moteur IA n'est sélectionné. Vérifiez votre clé API.")
         st.stop()
     elif not formation:
          st.warning("Veuillez indiquer une formation concernée.")
