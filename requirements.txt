@@ -1,7 +1,7 @@
-import streamlit as st
-import google.generativeai as genai
-from google.api_core.exceptions import InvalidArgument, ResourceExhausted
-import json
-import os
-import datetime
-from io import BytesIO
+streamlit as st
+google.generativeai as genai
+google.api_core.exceptions import InvalidArgument, ResourceExhausted
+json
+os
+datetime
+io import BytesIO
