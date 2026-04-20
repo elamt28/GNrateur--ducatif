@@ -1,6 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-from google.api_core.exceptions import InvalidArgument
+from google.api_core.exceptions import InvalidArgument, ResourceExhausted
 
 # --- CONFIGURATION EXPERTE ---
 st.set_page_config(page_title="GNrateur contenu éducatif", layout="wide", page_icon="📝")
@@ -135,11 +135,15 @@ if lancer:
                     
             except InvalidArgument:
                 st.error("🚨 La clé API saisie n'est pas valide. Veuillez vérifier que vous avez copié l'intégralité de la clé depuis Google AI Studio sans espace supplémentaire.")
+            except ResourceExhausted:
+                st.warning("⏱️ Quota d'utilisation dépassé (Erreur 429). Le moteur tourne trop vite pour la clé gratuite (limite de requêtes atteinte). Laissez refroidir environ 30 à 60 secondes avant de relancer la génération !")
             except Exception as e:
                 # Traitement des autres erreurs imprévues (réseau, surcharge serveur...)
                 error_message = str(e)
                 if "API_KEY_INVALID" in error_message:
                     st.error("🚨 Clé API refusée par le serveur Google. Vérifiez votre clé.")
+                elif "429" in error_message or "quota" in error_message.lower():
+                    st.warning("⏱️ Quota d'utilisation gratuit dépassé. Veuillez patienter une petite minute avant de relancer.")
                 else:
                     st.error("🚨 Une erreur de connexion au serveur est survenue. Veuillez réessayer dans quelques instants.")
                     st.code(error_message)
