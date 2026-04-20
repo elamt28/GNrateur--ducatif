@@ -1,5 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
+from google.api_core.exceptions import InvalidArgument
 
 # --- CONFIGURATION EXPERTE ---
 st.set_page_config(page_title="GNrateur contenu éducatif", layout="wide", page_icon="📝")
@@ -69,7 +70,8 @@ st.markdown("L'outil d'ingénierie pédagogique infaillible du CFA. Générez de
 
 with st.sidebar:
     st.header("🔑 Accès Sécurisé")
-    api_key = st.text_input("Clé API Google Gemini :", type="password", help="Insérez votre clé API ici. Elle n'est pas sauvegardée et reste locale.")
+    st.markdown("[Obtenir une clé API gratuite ici](https://aistudio.google.com/app/apikey)")
+    api_key = st.text_input("Clé API Google Gemini :", type="password", help="Insérez votre clé API valide ici. Elle n'est pas sauvegardée et reste locale.")
     
     st.divider()
     
@@ -97,7 +99,7 @@ if lancer:
         st.warning("Veuillez indiquer un sujet de cours.")
         st.stop()
     else:
-        # Configuration sécurisée de la clé saisie par l'utilisateur
+        # Configuration de la clé saisie par l'utilisateur
         genai.configure(api_key=api_key)
         
         with st.spinner("Rédaction du document clef en main (Processus blindé en cours)..."):
@@ -121,6 +123,13 @@ if lancer:
                 # 3. Affichage pleine page
                 st.markdown(document_cours)
                     
+            except InvalidArgument:
+                st.error("🚨 La clé API saisie n'est pas valide. Veuillez vérifier que vous avez copié l'intégralité de la clé depuis Google AI Studio sans espace supplémentaire.")
             except Exception as e:
-                st.error("🚨 Une erreur système de connexion à l'IA est survenue. Vérifiez que votre clé API est valide.")
-                st.code(str(e))
+                # Traitement des autres erreurs imprévues (réseau, surcharge serveur...)
+                error_message = str(e)
+                if "API_KEY_INVALID" in error_message:
+                    st.error("🚨 Clé API refusée par le serveur Google. Vérifiez votre clé.")
+                else:
+                    st.error("🚨 Une erreur de connexion au serveur est survenue. Veuillez réessayer dans quelques instants.")
+                    st.code(error_message)
