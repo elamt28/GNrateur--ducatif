@@ -75,16 +75,24 @@ with st.sidebar:
     st.divider()
     
     st.header("⚙️ Paramètres de la session")
-    formation = st.selectbox(
-        "Formation concernée :", 
-        [
-            "Bac Pro Maintenance Véhicule (2de)", "Bac Pro Maintenance Véhicule (1re)", "Bac Pro Maintenance Véhicule (Term)",
-            "BTS Maintenance Véhicule", "Carrossier/Peintre",
-            "BP Boulanger", "BM Boulanger", "BP Boucher", 
-            "CAP Équipier Polyvalent du Commerce (EPC)", 
-            "BP Coiffure", "AMLHR (Hôtellerie-Restauration)"
-        ]
-    )
+    
+    # Gestion de la formation avec option "Autre"
+    options_formation = [
+        "Bac Pro Maintenance Véhicule (2de)", "Bac Pro Maintenance Véhicule (1re)", "Bac Pro Maintenance Véhicule (Term)",
+        "BTS Maintenance Véhicule", "Carrossier/Peintre",
+        "BP Boulanger", "BM Boulanger", "BP Boucher", 
+        "CAP Équipier Polyvalent du Commerce (EPC)", 
+        "BP Coiffure", "AMLHR (Hôtellerie-Restauration)",
+        "➕ Autre (à préciser)"
+    ]
+    
+    formation_selectionnee = st.selectbox("Formation concernée :", options_formation)
+    
+    if formation_selectionnee == "➕ Autre (à préciser)":
+        formation = st.text_input("Précisez la formation :", placeholder="Ex: CAP Pâtissier...")
+    else:
+        formation = formation_selectionnee
+
     sujet = st.text_input("Sujet du cours :", placeholder="Ex: L'allumage électronique, Le pétrissage...")
     localisation = st.text_input("Localisation :", value="Chartres / Champhol")
     lancer = st.button("🚀 Générer le Document", use_container_width=True)
@@ -94,6 +102,9 @@ if lancer:
     if not api_key:
         st.warning("👈 Veuillez entrer votre clé API Gemini dans le menu de gauche pour démarrer le moteur.")
         st.stop()
+    elif not formation:
+         st.warning("Veuillez indiquer une formation concernée.")
+         st.stop()
     elif not sujet:
         st.warning("Veuillez indiquer un sujet de cours.")
         st.stop()
