@@ -185,7 +185,7 @@ with st.sidebar:
     api_key = st.text_input("Clé Google Gemini :", type="password")
     if api_key:
         liste_moteurs = obtenir_modeles_disponibles(api_key)
-        moteur_ia = st.selectbox("Moteur IA (Préférer 1.5-flash en cas d'erreur 429) :", liste_moteurs)
+        moteur_ia = st.selectbox("Moteur IA (Préférer 1.5-flash en cas d'erreur 429) :", liste_moteurs, key="moteur_selection")
     else: moteur_ia = None
 
 with tab_gen:
@@ -195,11 +195,11 @@ with tab_gen:
         "BTS Maintenance Véhicule", "Carrossier/Peintre", "BP Boulanger", "BM Boulanger", "BP Boucher", 
         "CAP Équipier Polyvalent du Commerce (EPC)", "BP Coiffure", "AMLHR", "➕ Autre"
     ]
-    formation_sel = st.selectbox("Formation concernée :", options_f)
-    formation = st.text_input("Précisez la formation :") if formation_sel == "➕ Autre" else formation_sel
+    formation_sel = st.selectbox("Formation concernée :", options_f, key="formation_selection")
+    formation = st.text_input("Précisez la formation :", key="formation_autre") if formation_sel == "➕ Autre" else formation_sel
     
-    # Bouton de suggestion avec gestion de mémoire
-    if st.button("💡 Suggérer des idées de sujets"):
+    # Bouton de suggestion avec gestion de mémoire et clé
+    if st.button("💡 Suggérer des idées de sujets", key="btn_suggest"):
         if api_key and formation: 
             with st.spinner("Consultation des référentiels..."):
                 st.session_state.suggestions_memoire = suggerer_sujets(formation, api_key)
@@ -207,12 +207,15 @@ with tab_gen:
     if st.session_state.suggestions_memoire:
         st.info(st.session_state.suggestions_memoire)
             
-    sujet = st.text_input("Sujet du cours :", placeholder="Ex: L'allumage électronique, Levains naturels...")
-    lieu = st.text_input("Lieu du scénario :", value="Chartres / Champhol")
-    lancer = st.button("🚀 Forger le Module", use_container_width=True)
+    sujet = st.text_input("Sujet du cours :", placeholder="Ex: L'allumage électronique, Levains naturels...", key="sujet_input")
+    lieu = st.text_input("Lieu du scénario :", value="Chartres / Champhol", key="lieu_input")
+    lancer = st.button("🚀 Forger le Module", use_container_width=True, key="btn_forge")
 
     # TRAITEMENT DE LA GÉNÉRATION
     if lancer and sujet and moteur_ia:
+        # Nettoyer les suggestions visuelles pour ne pas décaler l'écran
+        st.session_state.suggestions_memoire = None 
+        
         genai.configure(api_key=api_key)
         with st.spinner(f"Forgeage pédagogique avec {moteur_ia} en cours..."):
             try:
@@ -229,19 +232,28 @@ with tab_gen:
 
     # AFFICHAGE PERSISTANT (Empêche l'erreur removeChild lors du téléchargement)
     if st.session_state.cours_memoire:
-        st.success("✅ Module pédagogique forgé et prêt !")
-        col1, col2 = st.columns([2, 1])
-        with col1:
-            if HAS_DOCX: 
-                doc_bytes = generer_docx(f"Cours : {st.session_state.sujet_memoire}", st.session_state.cours_memoire)
-                if doc_bytes:
-                    st.download_button("📥 Télécharger en format WORD (.docx)", doc_bytes, f"Cours_{st.session_state.sujet_memoire}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
-        with col2:
-            if HAS_QR: 
-                st.image(generer_qr_code("https://www.cfa-interpro-28.fr/"), width=120, caption="Lien de session")
-        
-        st.divider()
-        st.markdown(st.session_state.cours_memoire)
+        # Utilisation d'un container pour stabiliser le DOM de React
+        with st.container():
+            st.success("✅ Module pédagogique forgé et prêt !")
+            col1, col2 = st.columns([2, 1])
+            with col1:
+                if HAS_DOCX: 
+                    doc_bytes = generer_docx(f"Cours : {st.session_state.sujet_memoire}", st.session_state.cours_memoire)
+                    if doc_bytes:
+                        # Ajout d'une 'key' unique pour empêcher le crash React
+                        st.download_button(
+                            label="📥 Télécharger en format WORD (.docx)", 
+                            data=doc_bytes, 
+                            file_name=f"Cours_{st.session_state.sujet_memoire}.docx", 
+                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            key="dl_main"
+                        )
+            with col2:
+                if HAS_QR: 
+                    st.image(generer_qr_code("https://www.cfa-interpro-28.fr/"), width=120, caption="Lien de session")
+            
+            st.divider()
+            st.markdown(st.session_state.cours_memoire)
 
 with tab_hist:
     st.header("📂 Bibliothèque Pédagogique")
@@ -252,7 +264,7 @@ with tab_hist:
         if not archives: 
             st.info("Votre bibliothèque est vide. Forgez votre premier cours !")
         else:
-            for item in archives:
+            for index, item in enumerate(archives):
                 date_val = item.get('date')
                 date_str = date_val.strftime('%d/%m/%Y %H:%M') if date_val else "Inconnue"
                 with st.expander(f"📅 {date_str} | {item.get('formation')} : {item.get('sujet')}"):
@@ -260,4 +272,10 @@ with tab_hist:
                     if HAS_DOCX:
                         doc_bytes_archive = generer_docx(item.get('sujet'), item.get('contenu'))
                         if doc_bytes_archive:
-                            st.download_button("📥 Retélécharger WORD", doc_bytes_archive, f"Archive_{item.get('sujet')}.docx", key=f"dl_{item.get('timestamp')}")
+                            # Ajout d'une 'key' blindée basée sur le timestamp
+                            st.download_button(
+                                label="📥 Retélécharger WORD", 
+                                data=doc_bytes_archive, 
+                                file_name=f"Archive_{item.get('sujet')}.docx", 
+                                key=f"dl_archive_{item.get('timestamp')}_{index}"
+                            )
