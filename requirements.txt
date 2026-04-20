@@ -1,3 +1,6 @@
 streamlit
 google-generativeai
+python-docx
+qrcode
+Pillow
 firebase-admin
