@@ -1,0 +1,146 @@
+import streamlit as st
+import google.generativeai as genai
+from google.api_core.exceptions import InvalidArgument, ResourceExhausted
+import json
+import datetime
+from io import BytesIO
+
+# --- VÉRIFICATION DES MODULES ---
+try:
+    from docx import Document
+    from docx.shared import Pt
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    HAS_DOCX = True
+except ImportError:
+    HAS_DOCX = False
+
+try:
+    import qrcode
+    HAS_QR = True
+except ImportError:
+    HAS_QR = False
+
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    HAS_FIREBASE = True
+except ImportError:
+    HAS_FIREBASE = False
+
+# --- CONFIGURATION ---
+APP_ID = globals().get('__app_id', 'eduforge-pro-master-cfa')
+FIREBASE_CONFIG = globals().get('__firebase_config')
+
+# --- ÉTAT DE LA SESSION (STABILISATION REACT) ---
+if 'cours_memoire' not in st.session_state:
+    st.session_state.cours_memoire = None
+if 'analyse_pedago' not in st.session_state:
+    st.session_state.analyse_pedago = None
+if 'sujet_memoire' not in st.session_state:
+    st.session_state.sujet_memoire = None
+
+# --- INITIALISATION FIREBASE ---
+def init_storage():
+    if not HAS_FIREBASE or not FIREBASE_CONFIG: return None
+    try:
+        if not firebase_admin._apps:
+            conf = json.loads(FIREBASE_CONFIG)
+            cred = credentials.Certificate(conf)
+            firebase_admin.initialize_app(cred)
+        return firestore.client()
+    except Exception: return None
+
+db = init_storage()
+
+# --- MOTEUR D'ANALYSE PÉDAGOGIQUE (NOUVEAUTÉ) ---
+def analyser_qualite_cours(contenu, formation):
+    """Analyse le contenu pour garantir l'exigence EduForge."""
+    score = 0
+    remarques = []
+    
+    if "Chartres" in contenu or "Champhol" in contenu:
+        score += 35
+        remarques.append("✅ Ancrage local validé.")
+    else:
+        remarques.append("⚠️ Manque de contexte local.")
+        
+    if "Barème" in contenu or "/20" in contenu:
+        score += 35
+        remarques.append("✅ Évaluation structurée présente.")
+        
+    if len(contenu) > 1500:
+        score += 30
+        remarques.append("✅ Densité technique conforme pour 60min.")
+        
+    return score, remarques
+
+# --- GÉNÉRATION DOCX ---
+def generer_docx(titre, contenu):
+    if not HAS_DOCX: return None
+    doc = Document()
+    doc.add_heading(titre, 0).alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for ligne in contenu.split('\n'):
+        if ligne.startswith('# '): doc.add_heading(ligne.replace('# ', ''), level=1)
+        elif ligne.startswith('## '): doc.add_heading(ligne.replace('## ', ''), level=2)
+        elif ligne.startswith('**'): doc.add_paragraph().add_run(ligne.replace('**', '')).bold = True
+        else: doc.add_paragraph(ligne)
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+# --- GÉNÉRATION IA ---
+def forger_cours_ia(formation, sujet, lieu, moteur):
+    model = genai.GenerativeModel(moteur)
+    prompt = f"""
+    Agis en expert pédagogique pour le CFA de Chartres.
+    Formation : {formation}. Sujet : {sujet}. Lieu : {lieu}.
+    Exigence : Ton ludique, humour, technique certifiée.
+    Structure : Référentiel, Scénario (Chartres), Notions, Activités, Évaluation/20, Correction.
+    """
+    return model.generate_content(prompt).text
+
+# --- INTERFACE ---
+st.title("⚡ EduForge Pro : Expert V22.0")
+st.markdown("*Ingénierie Pédagogique Haute Performance - CFA Chartres*")
+
+with st.sidebar:
+    st.header("🔑 Accès")
+    api_key = st.text_input("Clé Gemini :", type="password")
+    if api_key:
+        genai.configure(api_key=api_key)
+        moteur = st.selectbox("Moteur IA :", ["gemini-1.5-flash", "gemini-2.5-flash"])
+    
+    st.divider()
+    formation = st.selectbox("Diplôme :", ["BTS MV", "Bac Pro MV", "BP Boulanger", "BP Boucher", "CAP EPC"])
+    sujet = st.text_input("Sujet technique :")
+    lieu = st.text_input("Lieu :", value="Chartres / Champhol")
+    
+    if st.button("🚀 Forger le Module", key="btn_forge"):
+        if api_key and sujet:
+            with st.spinner("Forgeage et auto-critique en cours..."):
+                try:
+                    res = forger_cours_ia(formation, sujet, lieu, moteur)
+                    st.session_state.cours_memoire = res
+                    st.session_state.sujet_memoire = sujet
+                    # Lancement du diagnostic
+                    st.session_state.analyse_pedago = analyser_qualite_cours(res, formation)
+                except Exception as e: st.error(f"Erreur : {e}")
+
+# --- AFFICHAGE ET DIAGNOSTIC ---
+if st.session_state.cours_memoire:
+    score, rapports = st.session_state.analyse_pedago
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.success(f"✅ Cours généré avec un Score Qualité de {score}%")
+    with col2:
+        if HAS_DOCX:
+            st.download_button("📥 WORD", generer_docx(st.session_state.sujet_memoire, st.session_state.cours_memoire), f"{st.session_state.sujet_memoire}.docx", key="dl_master")
+
+    # Zone de Diagnostic
+    with st.expander("🔍 Rapport de conformité pédagogique"):
+        for r in rapports: st.write(r)
+        st.progress(score / 100)
+
+    st.divider()
+    st.markdown(st.session_state.cours_memoire)
