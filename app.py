@@ -86,7 +86,8 @@ with st.sidebar:
     sujet_in = st.text_input("Thème technique :")
     lieu_in = st.text_input("Lieu du scénario :", value="Chartres / Champhol")
     
-    if st.button("🚀 Forger le Module", key=f"btn_v33_{sujet_in}"):
+    # CORRECTIF ANTI-CRASH : Clé statique pour le bouton
+    if st.button("🚀 Forger le Module", key="btn_forge_v33"):
         if api_key and sujet_in:
             with st.spinner("Analyse des compétences et création du scénario miroir..."):
                 try:
@@ -95,16 +96,20 @@ with st.sidebar:
                     st.session_state.sujet_memoire = sujet_in
                 except Exception as e: st.error(f"Erreur : {e}")
 
-# --- AFFICHAGE ---
-if st.session_state.cours_memoire:
-    with st.container():
+# CORRECTIF ANTI-CRASH : Ancrage du conteneur d'affichage avant la condition
+result_container = st.container()
+
+with result_container:
+    # --- AFFICHAGE ---
+    if st.session_state.cours_memoire:
         col_t, col_dl = st.columns([4, 1])
         with col_t:
             st.success(f"✅ Module '{st.session_state.sujet_memoire}' forgé avec scénario de transfert.")
         with col_dl:
             if HAS_DOCX:
                 data = generer_docx_v33(st.session_state.sujet_memoire, st.session_state.cours_memoire)
-                st.download_button("📥 WORD", data, f"Transfert_{st.session_state.sujet_memoire}.docx", key="dl_v33")
+                # Clé de téléchargement sécurisée
+                st.download_button("📥 WORD", data, f"Transfert_{st.session_state.sujet_memoire}.docx", key="dl_v33_master")
         
         st.divider()
         st.markdown(st.session_state.cours_memoire)
