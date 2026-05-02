@@ -1,18 +1,18 @@
 import streamlit as st
+import traceback
+import datetime
+from io import BytesIO
 
-# --- 1. CONFIGURATION DE LA PAGE (OBLIGATOIREMENT EN PREMIER) ---
+# --- 1. CONFIGURATION DE LA PAGE (HORS ZONE DE DANGER) ---
 try:
-    st.set_page_config(page_title="EduForge Pro V33.1", layout="wide")
+    st.set_page_config(page_title="EduForge Pro V33.2", layout="wide")
 except Exception:
-    pass # Tolérance si la page tente de se recharger
+    pass
 
-# --- 2. BOUCLIER ANTI-CRASH GLOBAL ---
+# --- 2. BOUCLIER ANTI-CRASH SÉCURISÉ ---
 try:
     import google.generativeai as genai
-    import datetime
-    import traceback
-    from io import BytesIO
-
+    
     # --- VÉRIFICATION DES MODULES ---
     try:
         from docx import Document
@@ -28,7 +28,7 @@ try:
     if 'sujet_memoire' not in st.session_state:
         st.session_state.sujet_memoire = None
 
-    # --- MOTEUR DE GÉNÉRATION V33.1 (TRANSFERT & POWERPOINT) ---
+    # --- MOTEUR DE GÉNÉRATION V33.2 ---
     def forger_cours_v33(formation, sujet, lieu, moteur, api_key):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(moteur)
@@ -38,11 +38,10 @@ try:
         Module de 60 minutes. Formation : {formation}. Sujet : {sujet}. 
         Localisation : {lieu} (Chartres/Champhol).
         
-        EXIGENCES V33.1 :
+        EXIGENCES V33.2 :
         1. Ton ludique, humour technique et jeux de mots. Aucune formule de salutation au début du cours.
         2. SECTION TRANSFERT : "Et si la situation changeait ?". Propose une variante du scénario avec une contrainte supplémentaire (ex: panne inédite, client difficile).
-        3. ACCOMPAGNEMENT POWERPOINT : Intègre une description des diapositives avec des idées de visuels (photos réelles ET dessins style 'cartoons' aux couleurs vives) pour un visionnage plaisant et non académique.
-        4. STRUCTURE EXHAUSTIVE : 
+        3. STRUCTURE EXHAUSTIVE : 
            - # 🎓 TITRE DU MODULE
            - ## 🎯 RÉFÉRENTIEL MÉTIER
            - ## 🎬 SCÉNARIO PRINCIPAL (Humour local)
@@ -50,12 +49,11 @@ try:
            - ## 🔄 ET SI LA SITUATION CHANGEAIT ?
            - ## 📝 ÉVALUATION SOMMATIVE (/20)
            - ## 👨‍🏫 CORRECTION & AUTO-CRITIQUE (Justification des réponses)
-           - ## 🖥️ STRUCTURE POUR DIAPORAMA
-        5. Ne cite JAMAIS 'Manu' dans le cours.
+        4. Ne cite JAMAIS 'Manu' dans le cours.
         """
         return model.generate_content(prompt).text
 
-    # --- EXPORT WORD V33.1 ---
+    # --- EXPORT WORD V33.2 ---
     def generer_docx_v33(titre, contenu):
         if not HAS_DOCX: return None
         doc = Document()
@@ -69,8 +67,6 @@ try:
                 p = doc.add_heading(ligne.replace('## ', ''), level=2)
                 if "CHANGEAIT" in ligne:
                     p.runs[0].font.color.rgb = RGBColor(0, 153, 153) # Cyan
-                elif "DIAPORAMA" in ligne:
-                    p.runs[0].font.color.rgb = RGBColor(204, 102, 0) # Orange vif
             else:
                 doc.add_paragraph(ligne)
                 
@@ -79,7 +75,7 @@ try:
         return buf.getvalue()
 
     # --- INTERFACE ---
-    st.title("⚡ EduForge Pro : V33.1 (Anti-Crash & Visuels)")
+    st.title("⚡ EduForge Pro : V33.2 (Stabilité Absolue)")
     st.markdown("*L'ingénierie qui prépare les apprentis aux imprévus du métier - Chartres*")
 
     with st.sidebar:
@@ -94,34 +90,30 @@ try:
         sujet_in = st.text_input("Thème technique :")
         lieu_in = st.text_input("Lieu du scénario :", value="Chartres / Champhol")
         
-        # CORRECTIF ANTI-CRASH : Clé statique pour le bouton
-        if st.button("🚀 Forger le Module", key="btn_forge_v33_1"):
+        if st.button("🚀 Forger le Module", key="btn_forge_v33_2"):
             if api_key and sujet_in:
-                with st.spinner("Analyse des compétences, transfert et création des visuels..."):
+                with st.spinner("Analyse des compétences et transfert en cours..."):
                     res = forger_cours_v33(f_sel, sujet_in, lieu_in, moteur, api_key)
                     st.session_state.cours_memoire = res
                     st.session_state.sujet_memoire = sujet_in
 
-    # CORRECTIF ANTI-CRASH : Ancrage du conteneur d'affichage avant la condition
     result_container = st.container()
 
     with result_container:
-        # --- AFFICHAGE ---
         if st.session_state.cours_memoire:
             col_t, col_dl = st.columns([4, 1])
             with col_t:
-                st.success(f"✅ Module '{st.session_state.sujet_memoire}' forgé avec scénario de transfert et diaporama.")
+                st.success(f"✅ Module '{st.session_state.sujet_memoire}' forgé avec succès.")
             with col_dl:
                 if HAS_DOCX:
                     data = generer_docx_v33(st.session_state.sujet_memoire, st.session_state.cours_memoire)
-                    # Clé de téléchargement sécurisée
                     st.download_button("📥 WORD", data, f"Cours_{st.session_state.sujet_memoire}.docx", key="dl_v33_master")
             
             st.divider()
             st.markdown(st.session_state.cours_memoire)
 
-# --- FIN DU BOUCLIER (CAPTURE DES ERREURS TECHNIQUES) ---
+# --- FIN DU BOUCLIER ---
 except Exception as e:
     st.error("🚨 DÉFAILLANCE CRITIQUE INTERCEPTÉE PAR LA BOÎTE NOIRE")
-    st.warning("L'application a évité le crash complet. Voici le rapport technique à me transmettre :")
+    st.warning("L'application a évité le crash complet. Voici le rapport technique :")
     st.code(traceback.format_exc())
