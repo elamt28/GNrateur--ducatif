@@ -3,15 +3,14 @@ import traceback
 
 # --- 1. CONFIGURATION DE LA PAGE (SÉCURISÉE) ---
 try:
-    st.set_page_config(page_title="EduForge Pro V35", layout="wide", page_icon="⚡")
+    st.set_page_config(page_title="EduForge Pro V36", layout="wide", page_icon="⚡")
 except Exception:
-    pass # Empêche le crash si Streamlit recharge l'interface
+    pass # Tolérance aux rechargements internes
 
 # --- 2. BOUCLIER GLOBAL ANTI-CRASH ---
 try:
     import google.generativeai as genai
     from io import BytesIO
-    import datetime
     
     # --- VÉRIFICATION DU MODULE WORD ---
     try:
@@ -28,8 +27,8 @@ try:
     if 'sujet_memoire' not in st.session_state:
         st.session_state.sujet_memoire = None
 
-    # --- MOTEUR DE GÉNÉRATION V35 (PÉDAGOGIE EXPERTE CFA CHARTRES) ---
-    def forger_cours_v35(formation, sujet, lieu, moteur, api_key):
+    # --- MOTEUR DE GÉNÉRATION V36 (PÉDAGOGIE EXPERTE CFA CHARTRES) ---
+    def forger_cours_v36(formation, sujet, lieu, moteur, api_key):
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(moteur)
         
@@ -43,7 +42,7 @@ try:
         2. Ne cite JAMAIS le prénom 'Manu'.
         3. Ton ludique, humour technique et jeux de mots.
         4. Exactitude certifiée : auto-critique la logique de tes arguments, n'invente rien, pas de réponses superficielles.
-        5. NE PROPOSE PAS de diapositives ou PowerPoint (sauf si je te le demande explicitement plus tard).
+        5. NE PROPOSE PAS de diapositives ou PowerPoint.
         6. Respecte scrupuleusement la structure du plan avec missions, exercices et synthèses.
         
         STRUCTURE EXHAUSTIVE : 
@@ -57,8 +56,8 @@ try:
         """
         return model.generate_content(prompt).text
 
-    # --- EXPORT WORD V35 ---
-    def generer_docx_v35(titre, contenu):
+    # --- EXPORT WORD V36 ---
+    def generer_docx_v36(titre, contenu):
         if not HAS_DOCX: return None
         doc = Document()
         t = doc.add_heading(titre, 0)
@@ -79,8 +78,11 @@ try:
         return buf.getvalue()
 
     # --- INTERFACE UTILISATEUR ---
-    st.title("⚡ EduForge Pro : V35 (Blindée)")
+    st.title("⚡ EduForge Pro : V36 (Structure Anti-Crash)")
     st.markdown("*L'ingénierie certifiée du CFA Interpro de Chartres*")
+
+    # Zone de notification statique (Empêche l'erreur removeChild)
+    zone_messages = st.empty()
 
     with st.sidebar:
         st.header("🔑 Configuration")
@@ -89,37 +91,55 @@ try:
             moteur = st.selectbox("Moteur IA :", ["gemini-1.5-flash", "gemini-2.5-flash"])
         
         st.divider()
-        formations = [
-            "BTS Maintenance Véhicule", 
-            "Bac Pro Maintenance Véhicule (2de, 1re, Term)", 
-            "Carrossier/Peintre",
-            "BM Boulanger",
-            "BP Boulanger", 
-            "BP Boucher", 
-            "CAP EPC", 
-            "BP Coiffure", 
-            "AMLHR"
-        ]
-        f_sel = st.selectbox("Formation visée :", formations)
-        sujet_in = st.text_input("Thème technique :")
-        lieu_in = st.text_input("Lieu du scénario :", value="Chartres / Champhol")
         
-        if st.button("🚀 Forger le Module", key="btn_forge_v35"):
-            if api_key and sujet_in:
+        # CORRECTIF MAJEUR : Utilisation d'un formulaire pour bloquer les rechargements intempestifs
+        with st.form("formulaire_forge"):
+            formations = [
+                "BTS Maintenance Véhicule", 
+                "Bac Pro Maintenance Véhicule (2de, 1re, Term)", 
+                "Carrossier/Peintre",
+                "BM Boulanger",
+                "BP Boulanger", 
+                "BP Boucher", 
+                "CAP EPC", 
+                "BP Coiffure", 
+                "AMLHR"
+            ]
+            f_sel = st.selectbox("Formation visée :", formations)
+            sujet_in = st.text_input("Thème technique :")
+            lieu_in = st.text_input("Lieu du scénario :", value="Chartres / Champhol")
+            
+            bouton_lancer = st.form_submit_button("🚀 Forger le Module")
+
+    # --- LOGIQUE DE DÉCLENCHEMENT ---
+    if bouton_lancer:
+        if api_key and sujet_in:
+            # Le spinner est maintenant dans la zone principale, sécurisé.
+            with zone_messages:
                 with st.spinner("Analyse des compétences et vérification d'exactitude..."):
-                    res = forger_cours_v35(f_sel, sujet_in, lieu_in, moteur, api_key)
+                    res = forger_cours_v36(f_sel, sujet_in, lieu_in, moteur, api_key)
                     st.session_state.cours_memoire = res
                     st.session_state.sujet_memoire = sujet_in
+        else:
+            zone_messages.error("⚠️ Veuillez renseigner votre Clé API et un Sujet.")
 
-    result_container = st.container()
-
-    with result_container:
+    # --- ZONE D'AFFICHAGE SÉCURISÉE ---
+    zone_contenu = st.container()
+    
+    with zone_contenu:
         if st.session_state.cours_memoire:
-            st.success(f"✅ Module '{st.session_state.sujet_memoire}' forgé avec exactitude certifiée.")
+            st.success(f"✅ Module '{st.session_state.sujet_memoire}' forgé avec exactitude.")
             
             if HAS_DOCX:
-                data = generer_docx_v35(st.session_state.sujet_memoire, st.session_state.cours_memoire)
-                st.download_button("📥 WORD", data, f"Cours_{st.session_state.sujet_memoire}.docx", key="dl_v35_master")
+                data = generer_docx_v36(st.session_state.sujet_memoire, st.session_state.cours_memoire)
+                # Le bouton de téléchargement a maintenant l'option use_container_width pour stabiliser le DOM
+                st.download_button(
+                    label="📥 Télécharger le Document WORD", 
+                    data=data, 
+                    file_name=f"Cours_FOAD_{st.session_state.sujet_memoire}.docx", 
+                    key="dl_docx_v36_final",
+                    use_container_width=True
+                )
             else:
                 st.warning("⚠️ Module Word désactivé (Erreur d'import).")
                 
@@ -128,8 +148,6 @@ try:
 
 # --- FIN DU BOUCLIER ---
 except BaseException as e:
-    # Ce bloc attrape absolument TOUTES les erreurs Python
-    st.error("🚨 DÉFAILLANCE CRITIQUE INTERCEPTÉE PAR LA BOÎTE NOIRE V35")
+    st.error("🚨 DÉFAILLANCE CRITIQUE INTERCEPTÉE PAR LA BOÎTE NOIRE V36")
     st.warning("L'application a évité le crash complet. Voici le rapport technique :")
     st.code(traceback.format_exc())
-    st.info("💡 Si cette erreur apparaît, vérifiez que votre fichier requirements.txt est correct.")
