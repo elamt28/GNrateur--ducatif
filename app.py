@@ -3,6 +3,9 @@ import google.generativeai as genai
 import datetime
 from io import BytesIO
 
+# --- CONFIGURATION DE LA PAGE (OBLIGATOIREMENT EN PREMIER) ---
+st.set_page_config(page_title="EduForge Pro V33", layout="wide")
+
 # --- VÉRIFICATION DES MODULES ---
 try:
     from docx import Document
@@ -70,7 +73,6 @@ def generer_docx_v33(titre, contenu):
     return buf.getvalue()
 
 # --- INTERFACE ---
-st.set_page_config(page_title="EduForge Pro V33", layout="wide")
 st.title("⚡ EduForge Pro : Transfert V33")
 st.markdown("*L'ingénierie qui prépare les apprentis aux imprévus du métier - Chartres*")
 
